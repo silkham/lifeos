@@ -95,6 +95,12 @@ html[data-theme="light"] .aurora .blob { filter:blur(90px); }
 .tile-val { font-family:var(--font-head); font-weight:600; font-size:27px; margin-top:6px; line-height:1.1; }
 .tile-foot { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
 .tile-detail { font-size:12px; color:var(--text-dim); }
+/* Freshness: metrics publish on app-open (or, for Invest, an hourly cron), so a
+   tile is only as fresh as its last publish. Show the age; fade when clearly stale
+   (>24h) so a dead value doesn't read as live. */
+.tile-age { font-size:11px; color:var(--text-faint); margin-top:6px; }
+.tile.stale { opacity:.55; }
+.tile.stale .tile-age { color:var(--amber); }
 /* Trend direction only — colour meaning is app-specific (up = good for a
    portfolio, bad for spend), so keep it neutral until adapters pass semantics. */
 .tr { font-size:12px; font-weight:600; color:var(--text-dim); }

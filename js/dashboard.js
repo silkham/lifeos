@@ -45,6 +45,27 @@ function trendArrow(t) {
   return `<span class="tr ${up ? "up" : "dn"}">${up ? "▲" : "▼"} ${esc(fmtValue(Math.abs(t), ""))}</span>`;
 }
 
+// ---- freshness -------------------------------------------------------------
+// Metrics publish on app-open (Invest also via an hourly server cron), so a tile
+// is only as fresh as its last publish. Show the age, and grey the tile out once
+// it's clearly stale so a dead value can't pass for a live one.
+const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+function ageMs(ts) {
+  if (!ts) return null;
+  const then = new Date(ts).getTime();
+  return Number.isNaN(then) ? null : Math.max(0, Date.now() - then);
+}
+function fmtAge(ms) {
+  if (ms == null) return "";
+  const mins = ms / 60000;
+  if (mins < 1.5) return "just now";
+  if (mins < 60) return `${Math.round(mins)}m ago`;
+  const hrs = mins / 60;
+  if (hrs < 24) return `${Math.round(hrs)}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
 // ---- tiles -----------------------------------------------------------------
 function tile(sig) {
   const m = appMeta(sig.app);
@@ -52,7 +73,11 @@ function tile(sig) {
   const cta = sig.cta_url
     ? ` onclick="window.open('${esc(sig.cta_url)}','_blank')" role="link" tabindex="0"`
     : "";
-  return `<div class="tile glass"${cta} style="--accent:${m.accent}">
+  const age = ageMs(sig.updated_at);
+  const stale = age != null && age > STALE_AFTER_MS;
+  const ageTxt = age != null ? fmtAge(age) : "";
+  const ageTitle = sig.updated_at ? new Date(sig.updated_at).toLocaleString("en-GB") : "";
+  return `<div class="tile glass${stale ? " stale" : ""}"${cta} style="--accent:${m.accent}">
     <div class="tile-app">${esc(m.label)}</div>
     <div class="tile-title">${esc(sig.title)}</div>
     ${val ? `<div class="tile-val" style="color:${stateColor(sig.state)}">${esc(val)}</div>` : ""}
@@ -60,6 +85,7 @@ function tile(sig) {
       ${sig.detail ? `<span class="tile-detail">${esc(sig.detail)}</span>` : ""}
       ${trendArrow(sig.trend)}
     </div>
+    ${ageTxt ? `<div class="tile-age" title="${esc(ageTitle)}">updated ${esc(ageTxt)}</div>` : ""}
   </div>`;
 }
 

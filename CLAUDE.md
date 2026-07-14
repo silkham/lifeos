@@ -48,7 +48,13 @@ An adapter is a thin "on save/boot, upsert my signals" function added to each so
 
 **Trend colour is driven by the `state` column, not the trend sign** (`dashboard.js` colours by `state`). So metric adapters must set `state` per-signal (up = good for a portfolio, bad for spend; losing weight / under-budget calories = good). Strive already does this.
 
-**Roadmap (remaining):** the cross-domain scheduling brain (full Lexie day → nudge Strive to move the hard session). *(All four source adapters now shipped; the `supaB` Project-B bridge is live, no longer dormant.)*
+## Freshness (tile staleness cue)
+
+Every adapter publishes **client-side, on app-open**, so a tile is only as fresh as the last time that source app was opened signed-in — a stale value used to look identical to a live one. `dashboard.js` now renders an **"updated Xh ago"** line on each metric tile (from the row's `updated_at`, which `select("*")` already carries), and **greys the tile out** (`.tile.stale`, opacity .55, amber age text) once it's **>24h old**. `fmtAge`/`ageMs` + `STALE_AFTER_MS` live in `dashboard.js`.
+
+**Invest is the exception that also refreshes server-side** (markets move while the app is closed): a **pg_cron job on Project B** POSTs hourly to an Edge Function that re-publishes the portfolio row — so the Invest tile stays live without anyone opening the Investing app. The in-app adapter still runs too; both write the same `(household_id, app='invest', key='portfolio')` row. Strive/Lexie/Household change ONLY on user action, so their publish-on-open is correct as-is — no server refresh needed. Server path details live in the **Investing** repo (`lifeos-invest-refresh` function + migration `0003_lifeos_invest_cron.sql`).
+
+**Roadmap (remaining):** the cross-domain scheduling brain (full Lexie day → nudge Strive to move the hard session). *(All four source adapters shipped; `supaB` Project-B bridge live; Invest tile now server-refreshed hourly.)*
 
 ## Design system
 
