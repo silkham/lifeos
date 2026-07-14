@@ -25,7 +25,7 @@ The CTA deep-links into the source app; **the source app owns the truth and flip
 
 ## Backend — TWO Supabase projects (the key architectural fact)
 
-- **Project A** `dgbbyijhabjozqrkokrq` (shared "household" DB) hosts Strive, Lexie, Household **and LifeOS itself**. Those three apps publish into `lifeos.signals` here natively (already authed as the shared household, same `household_memberships` identity). LifeOS reads it via `supa.schema("lifeos")` — the `LO` handle. `supa.from()` would hit `public`.
+- **Project A** `dgbbyijhabjozqrkokrq` (shared "household" DB) hosts Strive, Lexie, Household **and LifeOS itself**. Those three apps publish into `lifeos.signals` here as the shared household (same `household_memberships` identity). Strive/Household were already authed; **Lexie is the outlier — it ran anon and needed a login gate added** (see Adapters) before it could satisfy the RLS. LifeOS reads it via `supa.schema("lifeos")` — the `LO` handle. `supa.from()` would hit `public`.
 - **Project B** `wqkhjbmsciuhwdqsdsni` (Investing's own DB) is the single outlier. It gets an identical **mirror `signals` table**; LifeOS reads it with a **second, read-only client** (`supaB`, isolated `storageKey`) and merges. **Dormant until the Investment adapter ships** — `loadFromB()` is best-effort (missing table / no session → `[]`). A Project-B signal is read-only from LifeOS (`setStatus` skips `app==='invest'`).
 
 RLS on `lifeos.signals` gated on `household_id in (select lifeos.my_household_ids())` — same SECURITY-DEFINER pattern the `house_project` schema uses. Grants to `authenticated` (+ `anon` usage). **Anon keys in `js/store.js` are public client keys — RLS is the real gate; fine to commit.** No secrets in this repo.
@@ -40,9 +40,14 @@ Migrations applied via the **Management API**: `POST https://api.supabase.com/v1
 
 ## Adapters (live in the SOURCE app's repo, not here)
 
-An adapter is a thin "on save/boot, upsert my signals" function added to each source app. First one built: **Household** — `js/lifeos.js` in the House Poject repo, `publishToLifeOS()` called fire-and-forget after boot; publishes `month-net` + `cash` metrics from `currentForecast()`. Pattern for the rest: `supa.schema("lifeos").from("signals").upsert(rows, { onConflict: "household_id,app,key" })`.
+An adapter is a thin "on save/boot, upsert my signals" function added to each source app. Pattern: `supa.schema("lifeos").from("signals").upsert(rows, { onConflict: "household_id,app,key" })`, called fire-and-forget on boot. **Three shipped:**
+- **Household** — `js/lifeos.js` in the House Poject repo; publishes `month-net` + `cash` metrics from `currentForecast()`.
+- **Strive** (Fitness, v4.13.0) — `lifeos.js` at the Fitness **repo root** (that app is a monolithic classic global `app.js`, NOT `js/` ES modules — the adapter is a classic `<script>` loaded after `app.js`, sharing its global scope; reuses `State`/`dayTotals`/`missedSlots`). Publishes `weight` + `calories-today` metrics and `log-food-today` + `workout-tomorrow` task/nudge, **flipping `status` open↔done every boot**. Sets the `state` column (`good|warn|bad`) for colour — see next point.
+- **Lexie** (Lexie & Me, build 13) — inline in that app's single-file `index.html` (`publishToLifeOS()`). **The auth outlier:** Lexie used to run purely `anon` (shared-secret-string household), so it could NOT satisfy the signals RLS — the S26 assumption that "all three apps are already authed" was WRONG for Lexie. Fix: added a **login gate** so Lexie authenticates as the shared household (same JWT space as the others; its `household_state` sync still works under auth). Publishes one `nudge` per **day-of-week slot** for the next 7 days (`key='nothing-planned-<dow>'`, self-cleaning; booked days → `status='dismissed'`). `due` uses a **local** yyyy-mm-dd helper, not `toISOString()`/`dkey` (BST off-by-one). Violet accent, `state='warn'`.
 
-**Roadmap:** Strive (weight/calories metrics + "log food"/"plan workout" nudges) · Lexie ("nothing planned <day>" nudges) · Invest (portfolio metric, into Project B) · then the cross-domain scheduling brain (full Lexie day → nudge Strive to move the hard session). Trend-arrow colour is currently neutral — pass per-signal good/bad semantics when metric adapters emit trends (up = good for a portfolio, bad for spend).
+**Trend colour is driven by the `state` column, not the trend sign** (`dashboard.js` colours by `state`). So metric adapters must set `state` per-signal (up = good for a portfolio, bad for spend; losing weight / under-budget calories = good). Strive already does this.
+
+**Roadmap (remaining):** Invest (portfolio metric into Project B — lights up the dormant `supaB` bridge) · then the cross-domain scheduling brain (full Lexie day → nudge Strive to move the hard session).
 
 ## Design system
 
