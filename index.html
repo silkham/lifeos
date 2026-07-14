@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<title>LifeOS</title>
+<meta name="theme-color" content="#0A0D11" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --font-head: "Fraunces", Georgia, serif;
+  --font-body: "Inter Tight", system-ui, sans-serif;
+  --ease: cubic-bezier(.22,.6,.36,1);
+  --dur-1: 180ms; --dur-2: 240ms; --dur-3: 360ms;
+  --r-card: 16px; --r-ctrl: 10px;
+}
+html[data-theme="dark"] {
+  --base:#0A0D11; --text:#EAF0F2; --text-dim:#8B98A2; --text-faint:#5A6771;
+  --card:rgba(20,27,34,.5); --card-solid:#141B22;
+  --card-top:inset 0 1px 0 rgba(255,255,255,.05); --hairline:rgba(255,255,255,.07);
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --mint:#34E0A1; --coral:#FF6B5A; --amber:#FFA24B; --violet:#7B5CFF; --blue:#2B8BFF;
+  --aurora-blend:screen; --aurora-op:.32; --nav-bg:rgba(12,16,20,.62);
+}
+html[data-theme="light"] {
+  --base:#F6F8F6; --text:#16201B; --text-dim:#566A5F; --text-faint:#8A9B92;
+  --card:#FFFFFF; --card-solid:#FFFFFF; --card-top:none; --hairline:#E4E7E3;
+  --shadow:0 2px 10px rgba(27,38,32,.05);
+  --mint:#12A66E; --coral:#E5533D; --amber:#C9820F; --violet:#6B4FE0; --blue:#2472D6;
+  --aurora-blend:normal; --aurora-op:.40; --nav-bg:rgba(255,255,255,.72);
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; }
+html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+body {
+  margin:0; font-family:var(--font-body); background:var(--base); color:var(--text);
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  touch-action:manipulation; overscroll-behavior:none; max-width:100%;
+}
+h1,h2,h3 { font-family:var(--font-head); font-weight:500; letter-spacing:-.01em; margin:0; }
+
+/* Aurora */
+.aurora { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+.aurora .blob { position:absolute; border-radius:50%; filter:blur(70px); mix-blend-mode:var(--aurora-blend); opacity:var(--aurora-op); }
+html[data-theme="light"] .aurora .blob { filter:blur(90px); }
+.blob.mint   { width:46vw; height:46vw; background:radial-gradient(circle,var(--mint),transparent 70%); top:-8vw; left:-6vw; animation:drift1 18s var(--ease) infinite alternate; }
+.blob.violet { width:42vw; height:42vw; background:radial-gradient(circle,var(--violet),transparent 70%); top:30vh; right:-8vw; animation:drift2 22s var(--ease) infinite alternate; }
+.blob.blue   { width:40vw; height:40vw; background:radial-gradient(circle,var(--blue),transparent 70%); bottom:-10vw; left:25vw; animation:drift3 16s var(--ease) infinite alternate; }
+@keyframes drift1 { to { transform:translate(6vw,5vh) scale(1.1); } }
+@keyframes drift2 { to { transform:translate(-5vw,-4vh) scale(1.08); } }
+@keyframes drift3 { to { transform:translate(4vw,-6vh) scale(1.12); } }
+
+/* Surfaces */
+.glass {
+  background:var(--card); border:1px solid var(--hairline);
+  box-shadow:var(--card-top),var(--shadow); border-radius:var(--r-card);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+
+/* Frame */
+#app { position:relative; z-index:1; min-height:100dvh; display:flex; flex-direction:column; }
+.appbar {
+  position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:12px;
+  padding:14px 18px; padding-top:max(14px,env(safe-area-inset-top,0px));
+  background:var(--nav-bg); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--hairline);
+}
+.wordmark { font-family:var(--font-head); font-weight:600; font-size:20px; letter-spacing:-.02em; }
+.wordmark .accent { color:var(--mint); }
+.spacer { flex:1; }
+.iconbtn {
+  display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px;
+  border-radius:10px; border:1px solid var(--hairline); background:transparent; color:var(--text-dim);
+  cursor:pointer; font-size:15px; transition:color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.iconbtn:hover { color:var(--mint); border-color:var(--mint); }
+.verlabel { font-size:11px; color:var(--text-faint); align-self:center; }
+
+/* Dashboard */
+.dash { max-width:900px; margin:0 auto; width:100%; padding:20px 16px 60px; }
+.dash-head { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+.dash-head h1 { font-size:30px; }
+.dash-sub { color:var(--text-dim); font-size:13px; margin-top:3px; }
+
+.tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:26px; }
+.tile { padding:16px; position:relative; overflow:hidden; cursor:pointer; animation:settle var(--dur-3) var(--ease) both; }
+.tile::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); opacity:.9; }
+.tile-app { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
+.tile-title { font-size:13px; color:var(--text-dim); margin-top:6px; }
+.tile-val { font-family:var(--font-head); font-weight:600; font-size:27px; margin-top:6px; line-height:1.1; }
+.tile-foot { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.tile-detail { font-size:12px; color:var(--text-dim); }
+/* Trend direction only — colour meaning is app-specific (up = good for a
+   portfolio, bad for spend), so keep it neutral until adapters pass semantics. */
+.tr { font-size:12px; font-weight:600; color:var(--text-dim); }
+
+.asection { margin-bottom:26px; }
+.asection h2 { font-size:15px; color:var(--text-dim); font-weight:500; margin-bottom:4px; }
+.asection-hint { font-size:12px; color:var(--text-faint); margin-bottom:10px; }
+.arow { display:flex; align-items:center; gap:12px; padding:13px 14px; margin-bottom:9px; animation:settle var(--dur-3) var(--ease) both; }
+.arow-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+.arow-body { flex:1; min-width:0; }
+.arow-title { font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.arow-app { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); border:1px solid var(--hairline); border-radius:6px; padding:1px 6px; }
+.arow-tag { font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--violet); border:1px solid var(--violet); border-radius:6px; padding:1px 6px; }
+.arow-detail { font-size:12px; color:var(--text-dim); margin-top:3px; }
+.arow-due { font-size:11px; color:var(--text-faint); margin-top:3px; }
+.arow-actions { display:flex; align-items:center; gap:8px; flex:none; }
+.btn-cta { font-family:var(--font-body); font-size:12px; font-weight:600; color:var(--base); background:var(--mint); border:none; border-radius:8px; padding:7px 12px; cursor:pointer; }
+.btn-done { width:32px; height:32px; border-radius:8px; border:1px solid var(--hairline); background:transparent; color:var(--text-dim); cursor:pointer; font-size:14px; }
+.btn-done:hover { color:var(--mint); border-color:var(--mint); }
+.btn-done:disabled { opacity:.4; }
+
+.empty { padding:30px; text-align:center; }
+.empty-title { font-family:var(--font-head); font-size:17px; }
+.empty-sub { color:var(--text-dim); font-size:13px; margin-top:6px; }
+
+@keyframes settle { from { opacity:0; transform:translateY(9px); } to { opacity:1; transform:none; } }
+
+/* Auth */
+#authScreen { display:none; position:relative; z-index:1; min-height:100dvh; align-items:center; justify-content:center; padding:24px; }
+.auth-card { width:100%; max-width:360px; padding:28px; }
+.auth-card h1 { font-size:26px; margin-bottom:4px; }
+.auth-card .sub { color:var(--text-dim); font-size:13px; margin-bottom:20px; }
+.auth-card label { display:block; font-size:12px; color:var(--text-dim); margin:12px 0 5px; }
+.auth-card input { width:100%; padding:11px 13px; border-radius:var(--r-ctrl); border:1px solid var(--hairline); background:var(--card-solid); color:var(--text); font-family:var(--font-body); font-size:14px; }
+.auth-card input:focus { outline:none; border-color:var(--mint); }
+.auth-card button { width:100%; margin-top:18px; padding:12px; border:none; border-radius:var(--r-ctrl); background:var(--mint); color:var(--base); font-family:var(--font-body); font-weight:600; font-size:15px; cursor:pointer; }
+.auth-err { color:var(--coral); font-size:12px; margin-top:10px; min-height:16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora .blob { animation:none !important; }
+  .tile, .arow { animation:none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="aurora" aria-hidden="true">
+  <div class="blob mint"></div><div class="blob violet"></div><div class="blob blue"></div>
+</div>
+
+<!-- Auth -->
+<div id="authScreen">
+  <form id="signinForm" class="auth-card glass">
+    <h1 class="wordmark">Life<span class="accent">OS</span></h1>
+    <div class="sub">Your day, across every app.</div>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required />
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required />
+    <button type="submit">Sign in</button>
+    <div id="authErr" class="auth-err"></div>
+  </form>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+  <header class="appbar">
+    <span class="wordmark">Life<span class="accent">OS</span></span>
+    <span class="spacer"></span>
+    <span id="verLabel" class="verlabel"></span>
+    <button id="refreshBtn" class="iconbtn" title="Refresh">⟳</button>
+    <button id="themeBtn" class="iconbtn" title="Theme">◐</button>
+    <button id="signoutBtn" class="iconbtn" title="Sign out">⏻</button>
+  </header>
+  <main id="dash-root"></main>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

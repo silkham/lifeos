@@ -1,0 +1,13 @@
+{
+  "name": "LifeOS",
+  "short_name": "LifeOS",
+  "description": "Your day, across every app.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0A0D11",
+  "theme_color": "#0A0D11",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
