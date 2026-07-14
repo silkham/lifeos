@@ -18,13 +18,19 @@ export const supa = createClient(A_URL, A_ANON);
 export const LO = supa.schema("lifeos");   // supa.from() would hit `public`
 window.__supa = supa; window.__LO = LO;
 
-// ---- Project B (Investment) — read-only bridge, dormant for now ------------
-// Its own auth; kept isolated behind its own storageKey so the two sessions
-// don't collide in localStorage. Reads are best-effort (table may not exist yet).
+// ---- Project B (Investment) — read-only bridge ----------------------------
+// Its own DB + its own auth. Reads on B require an authenticated JWT (the mirror
+// signals table is authenticated-only — nothing exposed to anon), so instead of
+// running anonymous we reuse the Investing app's session: both apps are served
+// from the same silkham.github.io origin, so we use supabase-js's DEFAULT
+// storageKey (sb-<ref>-auth-token) to pick up the session Investing already
+// persisted there. Different project ref → no collision with Project A's session.
+// Reads stay best-effort: no Investing session (user hasn't opened it) → RLS
+// denies → loadFromB() yields [] and the dashboard simply omits the invest tile.
 const B_URL  = "https://wqkhjbmsciuhwdqsdsni.supabase.co";
 const B_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indxa2hqYm1zY2l1aHdkcXNkc25pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NzkzMTMsImV4cCI6MjA5NzU1NTMxM30.cAWtGGE42k_GeSQRE1ZnFZIXK2EOat35-xnaF2Gczsc";
 export const supaB = createClient(B_URL, B_ANON, {
-  auth: { storageKey: "lifeos-projB-auth", persistSession: true },
+  auth: { persistSession: true, autoRefreshToken: true },
 });
 
 // Known shared household ("Our household") — fallback only.
