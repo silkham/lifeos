@@ -69,11 +69,36 @@ async function loadFromB() {
   } catch { return []; }
 }
 
-export async function loadSignals() {
+// A cheap fingerprint of the rendered-relevant fields, so a poll that returns
+// identical data doesn't re-emit (which would replay the dashboard's entrance
+// animations every minute). Status/value/updated_at cover every visible change.
+function signalsProof(list) {
+  return list
+    .map((s) => `${s.id}:${s.status}:${s.value}:${s.trend}:${s.updated_at}`)
+    .sort()
+    .join("|");
+}
+let lastProof = null;
+let inFlight = null;
+
+async function doLoad() {
   const [a, b] = await Promise.all([loadFromA(), loadFromB()]);
   state.signals = [...a, ...b];
-  emit();
+  const proof = signalsProof(state.signals);
+  if (proof !== lastProof) { lastProof = proof; emit(); }   // re-render only on real change
   return state.signals;
+}
+
+// Coalesces overlapping polls/focus refetches. `force` (used after a writeback)
+// waits out any in-flight poll first, so it can't return data read before the
+// write committed.
+export async function loadSignals({ force = false } = {}) {
+  if (inFlight) {
+    if (!force) return inFlight;
+    try { await inFlight; } catch { /* fall through to a fresh load */ }
+  }
+  inFlight = doLoad();
+  try { return await inFlight; } finally { inFlight = null; }
 }
 
 // ---- status writeback (done / dismiss) -------------------------------------
@@ -83,7 +108,7 @@ export async function setStatus(signal, status) {
   if (signal.app === "invest") return;   // Project B — read-only for now
   const { error } = await LO.from("signals").update({ status }).eq("id", signal.id);
   if (error) throw error;
-  await loadSignals();
+  await loadSignals({ force: true });
 }
 
 // ---- calendar acknowledgements (LifeOS-owned) ------------------------------
@@ -105,5 +130,5 @@ export async function setAck(lane, dow, dueISO, on) {
   };
   const { error } = await LO.from("signals").upsert(row, { onConflict: "household_id,app,key" });
   if (error) throw error;
-  await loadSignals();
+  await loadSignals({ force: true });
 }

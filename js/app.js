@@ -20,16 +20,40 @@ $("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
 
 // ---- auth ------------------------------------------------------------------
+let isAuthed = false;
 async function onSession(session) {
-  const authed = !!session;
-  $("authScreen").style.display = authed ? "none" : "flex";
-  $("app").style.display = authed ? "flex" : "none";
-  if (authed) {
+  isAuthed = !!session;
+  $("authScreen").style.display = isAuthed ? "none" : "flex";
+  $("app").style.display = isAuthed ? "flex" : "none";
+  if (isAuthed) {
     await resolveHousehold();
     mountDashboard($("dash-root"));
     await loadSignals();
+    startAutoRefresh();
+  } else {
+    stopAutoRefresh();
   }
 }
+
+// ---- auto-refresh ----------------------------------------------------------
+// LifeOS is meant to sit open. Source apps publish on user action, so poll for
+// new signals every 60s (paused while the tab's hidden) and refetch the moment
+// the tab regains focus — so a value just published in a source app shows here
+// without a manual reload. loadSignals only re-renders when data actually
+// changed, so idle polls are cheap and flicker-free. All triggers are gated on
+// being signed in (an anon read just hits RLS-denied).
+const POLL_MS = 60000;
+let pollTimer = null;
+function refreshNow() { if (isAuthed && !document.hidden) loadSignals(); }
+function startAutoRefresh() {
+  stopAutoRefresh();
+  pollTimer = setInterval(refreshNow, POLL_MS);
+}
+function stopAutoRefresh() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+document.addEventListener("visibilitychange", refreshNow);
+window.addEventListener("focus", refreshNow);
 
 $("signinForm").onsubmit = async (e) => {
   e.preventDefault();

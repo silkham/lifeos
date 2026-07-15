@@ -82,7 +82,7 @@ function tileHead(sig) {
   const stale = age != null && age > STALE_AFTER_MS;
   const ageTxt = age != null ? fmtAge(age) : "";
   const ageTitle = sig.updated_at ? new Date(sig.updated_at).toLocaleString("en-GB") : "";
-  const ageEl = ageTxt ? `<div class="tile-age" title="${esc(ageTitle)}">updated ${esc(ageTxt)}</div>` : "";
+  const ageEl = ageTxt ? `<div class="tile-age" data-ts="${esc(sig.updated_at)}" title="${esc(ageTitle)}">updated ${esc(ageTxt)}</div>` : "";
   return { m, cta, stale, ageEl };
 }
 
@@ -296,7 +296,24 @@ export function renderDashboard(root) {
     });
 }
 
+// Keep the "updated Xh ago" line advancing while the hub sits open, without a
+// full re-render (which would replay entrance animations). Rewrites the age text
+// in place and re-applies the >24h stale grey-out as the boundary is crossed.
+function tickAges(root) {
+  root.querySelectorAll(".tile-age[data-ts]").forEach((el) => {
+    const age = ageMs(el.dataset.ts);
+    if (age == null) return;
+    el.textContent = `updated ${fmtAge(age)}`;
+    const t = el.closest(".tile");
+    if (t) t.classList.toggle("stale", age > STALE_AFTER_MS);
+  });
+}
+
+let mounted = false;
 export function mountDashboard(root) {
-  subscribe(() => renderDashboard(root));
   renderDashboard(root);
+  if (mounted) return;              // onAuthStateChange can re-fire — subscribe/time once
+  mounted = true;
+  subscribe(() => renderDashboard(root));
+  setInterval(() => tickAges(root), 60000);
 }
