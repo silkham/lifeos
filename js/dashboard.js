@@ -67,9 +67,14 @@ function fmtAge(ms) {
 }
 
 // ---- tiles -----------------------------------------------------------------
-function tile(sig) {
+// The Household "This month" tile is a spend-vs-budget PROGRESS tile: its adapter
+// carries spend-so-far in `value` and the budget in `trend` (it opts out of the
+// up/down arrow — pace is conveyed by `state`/the bar). Everything else is a
+// plain metric tile.
+const isSpendTile = (s) => s.app === "household" && s.key === "month-net" && s.trend != null;
+
+function tileHead(sig) {
   const m = appMeta(sig.app);
-  const val = fmtValue(sig.value, sig.unit);
   const cta = sig.cta_url
     ? ` onclick="window.open('${esc(sig.cta_url)}','_blank')" role="link" tabindex="0"`
     : "";
@@ -77,6 +82,32 @@ function tile(sig) {
   const stale = age != null && age > STALE_AFTER_MS;
   const ageTxt = age != null ? fmtAge(age) : "";
   const ageTitle = sig.updated_at ? new Date(sig.updated_at).toLocaleString("en-GB") : "";
+  const ageEl = ageTxt ? `<div class="tile-age" title="${esc(ageTitle)}">updated ${esc(ageTxt)}</div>` : "";
+  return { m, cta, stale, ageEl };
+}
+
+function spendTile(sig) {
+  const { m, cta, stale, ageEl } = tileHead(sig);
+  const spent = Number(sig.value) || 0;
+  const budget = Number(sig.trend) || 0;
+  const pct = budget > 0 ? Math.min(100, Math.max(0, (spent / budget) * 100)) : 0;
+  const col = stateColor(sig.state);
+  return `<div class="tile glass${stale ? " stale" : ""}"${cta} style="--accent:${m.accent}">
+    <div class="tile-app">${esc(m.label)}</div>
+    <div class="tile-title">${esc(sig.title)}</div>
+    <div class="tile-val">${esc(fmtValue(spent, "gbp"))}${budget ? ` <span class="tile-of">/ ${esc(fmtValue(budget, "gbp"))}</span>` : ""}</div>
+    <div class="pbar"><span style="width:${pct.toFixed(0)}%;background:${col}"></span></div>
+    <div class="tile-foot">
+      ${sig.detail ? `<span class="tile-detail" style="color:${col}">${esc(sig.detail)}</span>` : ""}
+    </div>
+    ${ageEl}
+  </div>`;
+}
+
+function tile(sig) {
+  if (isSpendTile(sig)) return spendTile(sig);
+  const { m, cta, stale, ageEl } = tileHead(sig);
+  const val = fmtValue(sig.value, sig.unit);
   return `<div class="tile glass${stale ? " stale" : ""}"${cta} style="--accent:${m.accent}">
     <div class="tile-app">${esc(m.label)}</div>
     <div class="tile-title">${esc(sig.title)}</div>
@@ -85,7 +116,7 @@ function tile(sig) {
       ${sig.detail ? `<span class="tile-detail">${esc(sig.detail)}</span>` : ""}
       ${trendArrow(sig.trend)}
     </div>
-    ${ageTxt ? `<div class="tile-age" title="${esc(ageTitle)}">updated ${esc(ageTxt)}</div>` : ""}
+    ${ageEl}
   </div>`;
 }
 
@@ -179,9 +210,29 @@ function dayCard(day) {
   </div>`;
 }
 
+// ---- invest holdings (grouped under the portfolio tile) --------------------
+const isHolding = (s) => s.app === "invest" && String(s.key).startsWith("holding-");
+
+function holdingsCard(rows) {
+  const sorted = rows.slice().sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+  return `<section class="asection">
+    <div class="holdings-card glass" style="--accent:var(--amber)">
+      <div class="hc-head">Holdings</div>
+      <div class="hc-list">
+        ${sorted.map((h) => `<div class="hc-row"${h.cta_url ? ` data-cta="${esc(h.cta_url)}" role="link" tabindex="0"` : ""}>
+          <span class="hc-tk">${esc(h.title)}</span>
+          <span class="hc-val">${esc(fmtValue(h.value, h.unit))}</span>
+          <span class="hc-pl" style="color:${stateColor(h.state)}">${esc(h.detail || "")}</span>
+        </div>`).join("")}
+      </div>
+    </div>
+  </section>`;
+}
+
 export function renderDashboard(root) {
   const sigs = state.signals.slice().sort((a, b) => (a.sort_order - b.sort_order) || 0);
-  const metrics = sigs.filter((s) => s.kind === "metric");
+  const metrics = sigs.filter((s) => s.kind === "metric" && !isHolding(s));
+  const holdings = sigs.filter((s) => s.kind === "metric" && isHolding(s));
   const week = buildWeek(sigs);
   // Loose tasks — real to-dos not tied to a calendar day (e.g. log today's food).
   // Excludes the dow day-rows and LifeOS's own ack rows.
@@ -206,6 +257,8 @@ export function renderDashboard(root) {
       </div>` : ""}
 
       ${metrics.length ? `<div class="tiles">${metrics.map(tile).join("")}</div>` : ""}
+
+      ${holdings.length ? holdingsCard(holdings) : ""}
 
       <section class="asection">
         <h2>Next 7 days</h2>

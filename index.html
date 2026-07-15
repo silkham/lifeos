@@ -93,6 +93,10 @@ html[data-theme="light"] .aurora .blob { filter:blur(90px); }
 .tile-app { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
 .tile-title { font-size:13px; color:var(--text-dim); margin-top:6px; }
 .tile-val { font-family:var(--font-head); font-weight:600; font-size:27px; margin-top:6px; line-height:1.1; }
+.tile-of { font-size:15px; font-weight:500; color:var(--text-faint); }
+/* Spend-vs-budget progress bar (Household "This month"). */
+.pbar { height:6px; border-radius:99px; background:var(--hairline); overflow:hidden; margin-top:10px; }
+.pbar > span { display:block; height:100%; border-radius:99px; transition:width var(--dur-3) var(--ease); }
 .tile-foot { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
 .tile-detail { font-size:12px; color:var(--text-dim); }
 /* Freshness: metrics publish on app-open (or, for Invest, an hourly cron), so a
@@ -104,6 +108,17 @@ html[data-theme="light"] .aurora .blob { filter:blur(90px); }
 /* Trend direction only — colour meaning is app-specific (up = good for a
    portfolio, bad for spend), so keep it neutral until adapters pass semantics. */
 .tr { font-size:12px; font-weight:600; color:var(--text-dim); }
+
+/* Invest holdings — compact list grouped under the portfolio tile. */
+.holdings-card { padding:14px 16px; border-left:3px solid var(--accent); }
+.hc-head { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px; }
+.hc-row { display:grid; grid-template-columns:1fr auto auto; align-items:baseline; gap:12px; padding:8px 0; border-top:1px solid var(--hairline); }
+.hc-row:first-child { border-top:0; }
+.hc-row[data-cta] { cursor:pointer; }
+.hc-row[data-cta]:hover { color:var(--text); }
+.hc-tk { font-weight:600; font-size:14px; }
+.hc-val { font-variant-numeric:tabular-nums; font-size:14px; color:var(--text); }
+.hc-pl { font-variant-numeric:tabular-nums; font-size:12px; min-width:96px; text-align:right; }
 
 .asection { margin-bottom:26px; }
 .asection h2 { font-size:15px; color:var(--text-dim); font-weight:500; margin-bottom:4px; }
