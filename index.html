@@ -122,6 +122,32 @@ html[data-theme="light"] .aurora .blob { filter:blur(90px); }
 .btn-done:hover { color:var(--mint); border-color:var(--mint); }
 .btn-done:disabled { opacity:.4; }
 
+/* 7-day calendar */
+.week { display:flex; flex-direction:column; gap:10px; }
+.day-card { padding:12px 14px; animation:settle var(--dur-3) var(--ease) both; }
+.day-card.today { border-color:var(--mint); box-shadow:var(--card-top),0 0 0 1px var(--mint) inset,var(--shadow); }
+.day-head { display:flex; align-items:baseline; gap:8px; margin-bottom:9px; }
+.day-wd { font-family:var(--font-head); font-weight:600; font-size:15px; }
+.day-card.today .day-wd { color:var(--mint); }
+.day-dm { font-size:12px; color:var(--text-faint); }
+.day-lanes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.lane { display:flex; flex-direction:column; gap:6px; padding:10px; border-radius:var(--r-ctrl); border:1px solid var(--hairline); background:var(--card-solid); position:relative; overflow:hidden; }
+.lane::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); opacity:.85; }
+.lane-label { font-size:10px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); }
+.lane-body { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-height:30px; }
+.lane-plan { display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; width:100%; padding:6px 8px; border-radius:8px; border:1px solid var(--accent); background:transparent; color:var(--text); cursor:pointer; font-family:var(--font-body); }
+.lane-plan-title { font-size:13px; font-weight:600; line-height:1.2; }
+.lane-plan-sub { font-size:11px; color:var(--text-dim); }
+.lane-ack { font-size:13px; color:var(--text-dim); font-style:italic; }
+.lane-undo { font-family:var(--font-body); font-size:11px; color:var(--text-faint); background:none; border:none; cursor:pointer; text-decoration:underline; padding:0; }
+.lane-undo:hover { color:var(--text-dim); }
+.lane-btn { font-family:var(--font-body); font-size:12px; font-weight:600; border-radius:8px; padding:6px 10px; cursor:pointer; }
+.lane-btn.plan { color:var(--base); background:var(--accent); border:none; }
+.lane-btn.ack { color:var(--text-dim); background:transparent; border:1px solid var(--hairline); }
+.lane-btn.ack:hover { color:var(--text); border-color:var(--text-dim); }
+.lane-btn:disabled { opacity:.4; }
+@media (max-width:520px) { .day-lanes { grid-template-columns:1fr; } }
+
 .empty { padding:30px; text-align:center; }
 .empty-title { font-family:var(--font-head); font-size:17px; }
 .empty-sub { color:var(--text-dim); font-size:13px; margin-top:6px; }
@@ -141,7 +167,7 @@ html[data-theme="light"] .aurora .blob { filter:blur(90px); }
 
 @media (prefers-reduced-motion: reduce) {
   .aurora .blob { animation:none !important; }
-  .tile, .arow { animation:none !important; }
+  .tile, .arow, .day-card { animation:none !important; }
 }
 </style>
 </head>

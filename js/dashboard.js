@@ -4,7 +4,7 @@
 //   tasks   -> Today's actions (CTA deep-links into the source app)
 //   nudges  -> the planning radar ("what's coming that has no plan yet")
 // ============================================================================
-import { state, subscribe, setStatus } from "./store.js";
+import { state, subscribe, setStatus, setAck } from "./store.js";
 
 const APPS = {
   strive:    { label: "Strive",    accent: "var(--mint)" },
@@ -112,16 +112,82 @@ function actionRow(sig) {
   </div>`;
 }
 
-// ---- section builder -------------------------------------------------------
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+// ---- 7-day calendar --------------------------------------------------------
+// Two lanes per day — Lexie activity + Strive workout. Each source app publishes
+// dow-keyed `day-<dow>` rows for planned days (open + title); an absent open row
+// means unplanned. LifeOS owns `<lane>-ack-<dow>` rows for acknowledged-empty
+// days ("Rest day" / "No activity"). Local yyyy-mm-dd (not toISOString) so the
+// day boundary matches the adapters and survives BST.
+const DOW = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const localISO = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const LANES = {
+  lexie:  { label: "Activity", accent: "var(--violet)", planUrl: "https://silkham.github.io/lexie-and-me/#calendar", ackLabel: "No activity" },
+  strive: { label: "Workout",  accent: "var(--mint)",   planUrl: "https://silkham.github.io/Fitnesstracker/",       ackLabel: "Rest day" },
+};
+
+function buildWeek(sigs) {
+  const open = (app, key) => sigs.find((s) => s.app === app && s.key === key && s.status === "open");
+  const base = new Date(); base.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i);
+    const dow = DOW[d.getDay()];
+    days.push({
+      date: d, iso: localISO(d), dow, isToday: i === 0,
+      lexie:  { plan: open("lexie",  `day-${dow}`), ack: open("lifeos", `lexie-ack-${dow}`) },
+      strive: { plan: open("strive", `day-${dow}`), ack: open("lifeos", `strive-ack-${dow}`) },
+    });
+  }
+  return days;
+}
+
+function laneCell(iso, dow, laneKey, cell) {
+  const L = LANES[laneKey];
+  const head = `<span class="lane-label">${esc(L.label)}</span>`;
+  let body;
+  if (cell.plan) {
+    const s = cell.plan;
+    const cta = s.cta_url || L.planUrl;
+    body = `<button class="lane-plan" data-cta="${esc(cta)}">
+      <span class="lane-plan-title">${esc(s.title)}</span>
+      ${s.detail ? `<span class="lane-plan-sub">${esc(s.detail)}</span>` : ""}
+    </button>`;
+  } else if (cell.ack) {
+    body = `<span class="lane-ack">${esc(L.ackLabel)}</span>
+      <button class="lane-undo" data-ack-off="${laneKey}|${dow}|${iso}">undo</button>`;
+  } else {
+    body = `<button class="lane-btn plan" data-plan="${esc(L.planUrl)}">Plan</button>
+      <button class="lane-btn ack" data-ack-on="${laneKey}|${dow}|${iso}">${esc(L.ackLabel)}</button>`;
+  }
+  return `<div class="lane" style="--accent:${L.accent}">${head}<div class="lane-body">${body}</div></div>`;
+}
+
+function dayCard(day) {
+  const wd = day.isToday ? "Today" : day.date.toLocaleDateString("en-GB", { weekday: "long" });
+  const dm = day.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return `<div class="day-card glass${day.isToday ? " today" : ""}">
+    <div class="day-head">
+      <span class="day-wd">${esc(wd)}</span>
+      <span class="day-dm">${esc(dm)}</span>
+    </div>
+    <div class="day-lanes">
+      ${laneCell(day.iso, day.dow, "lexie", day.lexie)}
+      ${laneCell(day.iso, day.dow, "strive", day.strive)}
+    </div>
+  </div>`;
+}
 
 export function renderDashboard(root) {
   const sigs = state.signals.slice().sort((a, b) => (a.sort_order - b.sort_order) || 0);
   const metrics = sigs.filter((s) => s.kind === "metric");
-  const actions = sigs.filter((s) => s.kind !== "metric" && s.status === "open");
-  const today = todayISO();
-  const todayActions = actions.filter((s) => !s.due || s.due <= today);
-  const upcoming = actions.filter((s) => s.due && s.due > today);
+  const week = buildWeek(sigs);
+  // Loose tasks — real to-dos not tied to a calendar day (e.g. log today's food).
+  // Excludes the dow day-rows and LifeOS's own ack rows.
+  const loose = sigs.filter((s) =>
+    s.kind === "task" && s.status === "open" &&
+    !String(s.key).startsWith("day-") && s.app !== "lifeos");
 
   const empty = !sigs.length;
 
@@ -141,21 +207,35 @@ export function renderDashboard(root) {
 
       ${metrics.length ? `<div class="tiles">${metrics.map(tile).join("")}</div>` : ""}
 
-      ${todayActions.length ? `<section class="asection">
-        <h2>To do today</h2>
-        ${todayActions.map(actionRow).join("")}
-      </section>` : ""}
+      <section class="asection">
+        <h2>Next 7 days</h2>
+        <div class="asection-hint">Lexie's activity + your workout, each day. Plan the gaps or mark them off.</div>
+        <div class="week">${week.map(dayCard).join("")}</div>
+      </section>
 
-      ${upcoming.length ? `<section class="asection">
-        <h2>Needs planning</h2>
-        <div class="asection-hint">Coming up with nothing set — get ahead of it.</div>
-        ${upcoming.map(actionRow).join("")}
+      ${loose.length ? `<section class="asection">
+        <h2>Also today</h2>
+        ${loose.map(actionRow).join("")}
       </section>` : ""}
     </div>`;
 
-  // wire actions
+  // wire deep-links (planned chips + empty-day Plan buttons)
   root.querySelectorAll("[data-cta]").forEach((b) =>
     b.onclick = () => window.open(b.dataset.cta, "_blank"));
+  root.querySelectorAll("[data-plan]").forEach((b) =>
+    b.onclick = () => window.open(b.dataset.plan, "_blank"));
+
+  // wire calendar acknowledgements (set / undo a rest day / no-activity)
+  const wireAck = (attr, on) => root.querySelectorAll(`[${attr}]`).forEach((b) =>
+    b.onclick = async () => {
+      const [lane, dow, iso] = b.getAttribute(attr).split("|");
+      b.disabled = true;
+      try { await setAck(lane, dow, iso, on); } catch (e) { b.disabled = false; }
+    });
+  wireAck("data-ack-on", true);
+  wireAck("data-ack-off", false);
+
+  // wire loose-task actions
   root.querySelectorAll("[data-done]").forEach((b) =>
     b.onclick = async () => {
       const sig = state.signals.find((s) => s.id === b.dataset.done);

@@ -85,3 +85,25 @@ export async function setStatus(signal, status) {
   if (error) throw error;
   await loadSignals();
 }
+
+// ---- calendar acknowledgements (LifeOS-owned) ------------------------------
+// The 7-day calendar shows each day's Lexie activity + Strive workout. An empty
+// day can be *acknowledged* as intentional ("Rest day" / "No activity") so it
+// stops reading as unplanned. LifeOS owns these rows (app='lifeos') rather than
+// the source app, so Strive's every-boot republish can't resurrect a rest day.
+// dow-keyed to match the source adapters' self-cleaning weekly pattern.
+//   lane 'lexie'  → key 'lexie-ack-<dow>',  label "No activity"
+//   lane 'strive' → key 'strive-ack-<dow>', label "Rest day"
+// on=true opens the ack; on=false dismisses it (loadFromA filters dismissed out).
+export async function setAck(lane, dow, dueISO, on) {
+  const hid = await resolveHousehold();
+  const row = {
+    household_id: hid, app: "lifeos", kind: "task",
+    key: `${lane}-ack-${dow}`,
+    title: lane === "strive" ? "Rest day" : "No activity",
+    due: dueISO, status: on ? "open" : "dismissed", sort_order: 0,
+  };
+  const { error } = await LO.from("signals").upsert(row, { onConflict: "household_id,app,key" });
+  if (error) throw error;
+  await loadSignals();
+}
