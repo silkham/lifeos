@@ -23,6 +23,8 @@ The CTA deep-links into the source app; **the source app owns the truth and flip
 
 `(household_id, app, key)` is unique → re-publishing upserts (no duplicates). `key` is a stable per-signal id chosen by each adapter.
 
+**LANDMINE — the republish-overwrite race (fixed 2026-07-19, Fitness v4.14.1 / Lexie build 17).** The every-boot republish is **last-writer-wins** over `(household_id, app, key)`. It is only safe if the publishing device holds the *complete, authoritative* state at publish time. A device that publishes an empty/partial snapshot (fresh localStorage, cloud fetch not yet done, or the wrong active-member resolved) **clobbers the good signals another device wrote** — and the self-cleaning "empty day → `dismissed`" makes calendar wipes silent. Two invariants every adapter must hold: **(1) publish only *after* the source app's own cloud data has fully loaded** (Fitness bug: `loadMealLogs` ran before `activeMemberId` was resolved → wrong member → wrong calories). **(2) never publish an all-empty snapshot unless you *know* the state is authoritative** — guard against wiping the hub when you merely failed to load (Lexie bug: a module-load `save()`→`cloudSave` fired before `cloudLoad`, uploading the empty seed and wiping `household_state` cloud-wide; fixed with `_origSave` + a `_cloudEverLoaded` publish guard).
+
 ## The 7-day calendar (replaces Today/Needs-planning)
 
 `dashboard.js` renders a rolling week (today + 6), two lanes per day — **Lexie Activity** + **Strive Workout** — plus the metric tiles on top and an "Also today" list for loose tasks (e.g. `log-food-today`). The contract for it:
