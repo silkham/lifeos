@@ -169,6 +169,7 @@ function buildWeek(sigs) {
       date: d, iso: localISO(d), dow, isToday: i === 0,
       lexie:  { plan: open("lexie",  `day-${dow}`), ack: open("lifeos", `lexie-ack-${dow}`) },
       strive: { plan: open("strive", `day-${dow}`), ack: open("lifeos", `strive-ack-${dow}`) },
+      meals:  open("lexie", `meal-${dow}`),  // compact menu line; no ack — an empty day just isn't decided yet
     });
   }
   return days;
@@ -195,6 +196,19 @@ function laneCell(iso, dow, laneKey, cell) {
   return `<div class="lane" style="--accent:${L.accent}">${head}<div class="lane-body">${body}</div></div>`;
 }
 
+// Compact meal line under the two lanes — breakfast + lunch from Lexie's weekly
+// plan (published as lexie/meal-<dow>). Menu when planned, else a quiet link.
+const MEAL_PLAN_URL = "https://silkham.github.io/lexie-and-me/#meals";
+function mealLine(sig) {
+  if (sig) {
+    const cta = sig.cta_url || MEAL_PLAN_URL;
+    return `<button class="day-meals set" data-cta="${esc(cta)}">
+      <span class="dm-ic">🍽</span><span class="dm-menu">${esc(sig.title)}</span></button>`;
+  }
+  return `<button class="day-meals empty" data-plan="${esc(MEAL_PLAN_URL)}">
+    <span class="dm-ic">＋</span><span class="dm-menu">Plan meals</span></button>`;
+}
+
 function dayCard(day) {
   const wd = day.isToday ? "Today" : day.date.toLocaleDateString("en-GB", { weekday: "long" });
   const dm = day.date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -207,6 +221,7 @@ function dayCard(day) {
       ${laneCell(day.iso, day.dow, "lexie", day.lexie)}
       ${laneCell(day.iso, day.dow, "strive", day.strive)}
     </div>
+    ${mealLine(day.meals)}
   </div>`;
 }
 
@@ -238,7 +253,8 @@ export function renderDashboard(root) {
   // Excludes the dow day-rows and LifeOS's own ack rows.
   const loose = sigs.filter((s) =>
     s.kind === "task" && s.status === "open" &&
-    !String(s.key).startsWith("day-") && s.app !== "lifeos");
+    !String(s.key).startsWith("day-") && !String(s.key).startsWith("meal-") &&
+    s.app !== "lifeos");
 
   const empty = !sigs.length;
 
@@ -262,7 +278,7 @@ export function renderDashboard(root) {
 
       <section class="asection">
         <h2>Next 7 days</h2>
-        <div class="asection-hint">Lexie's activity + your workout, each day. Plan the gaps or mark them off.</div>
+        <div class="asection-hint">Lexie's activity, your workout, and meals — each day. Plan the gaps or mark them off.</div>
         <div class="week">${week.map(dayCard).join("")}</div>
       </section>
 
