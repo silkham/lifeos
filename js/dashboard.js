@@ -202,8 +202,12 @@ const MEAL_PLAN_URL = "https://silkham.github.io/lexie-and-me/#meals";
 function mealLine(sig) {
   if (sig) {
     const cta = sig.cta_url || MEAL_PLAN_URL;
-    return `<button class="day-meals set" data-cta="${esc(cta)}">
-      <span class="dm-ic">🍽</span><span class="dm-menu">${esc(sig.title)}</span></button>`;
+    // Lexie sends one icon-prefixed meal per line (newline-joined); render each on
+    // its own row so the icon associates it to its slot. Old dot-joined titles (no
+    // newline) fall through as a single row — graceful until Lexie republishes.
+    const items = String(sig.title).split("\n")
+      .map((s) => `<span class="dm-item">${esc(s)}</span>`).join("");
+    return `<button class="day-meals set" data-cta="${esc(cta)}">${items}</button>`;
   }
   return `<button class="day-meals empty" data-plan="${esc(MEAL_PLAN_URL)}">
     <span class="dm-ic">＋</span><span class="dm-menu">Plan meals</span></button>`;
