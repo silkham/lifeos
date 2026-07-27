@@ -57,6 +57,31 @@ An adapter is a thin "on save/boot, upsert my signals" function added to each so
 - **Lexie** (Lexie & Me, build 22) — inline in that app's single-file `index.html` (`publishToLifeOS()`). **Also publishes the Meals line** (build 22): a second per-day row `key='meal-<dow>'` from `S.dayMeals` (breakfast · lunch) — see the 7-day-calendar contract above for the meal-lane details. **The auth outlier:** Lexie used to run purely `anon` (shared-secret-string household), so it could NOT satisfy the signals RLS — the S26 assumption that "all three apps are already authed" was WRONG for Lexie. Fix: added a **login gate** so Lexie authenticates as the shared household (same JWT space as the others; its `household_state` sync still works under auth). Publishes the **calendar**: 7 `day-<dow>` task rows for today+6, from **`eventsForDay(d)[0]`** = "planned" — this is the SAME unified list the app's calendar/Coming-up shows, merging **`S.commitments`** (booked calendar entries) **and `S.dayPlace[k]`** (a place pinned to a day via Discover; e.g. "Chartwell"). `title=e.name`(+"+N more"), `detail=[e.time,e.sub]`; empty day → `status='dismissed'`/"No activity". *(Earlier it read `commitmentsFor(d)` only → planned places never reached the hub — build 16 fix.)* The app's random Today-screen auto-suggestions are still ignored (they're not in `S.commitments`/`S.dayPlace`). `due` uses a **local** yyyy-mm-dd helper (`dkey`), not `toISOString()` (BST off-by-one). **Republish is wired into `cloudSave()`** (after the `household_state` upsert), so a new booking/place propagates without an app reload — not just on boot. Bump `APP_VERSION` build N + `sw.js` `VERSION`. Violet accent.
 - **Invest** (Investing) — inline `publishToLifeOS()` in that app's single-file ES-module `index.html`, called fire-and-forget at the end of `loadPortfolio()`. **The only Project-B app** (writes to B's mirror table, authed as the Investing user). Publishes the `portfolio` `metric` (`value`=total £, `unit='gbp'`, `state='good'` when unrealised P/L ≥ 0 else `'bad'` (up = good), `detail`=P/L string, `cta_url` back to the app) **plus one `metric` per holding** (`key='holding-<ticker>'`, sanitized lowercase; `value`=holding £, `state` good/bad by that holding's P/L, `detail`=signed P/L). **Self-cleaning:** on each publish it reads its own `holding-*` keys on Project B and `status='dismissed'`-es any no longer held (update-in-place, avoids the NOT NULL insert path) — a sold stock's row would otherwise linger forever. LifeOS renders the holdings in a compact **Holdings card** grouped under the portfolio tile (excluded from the main tile grid by `app==='invest' && key startsWith 'holding-'`). The **hourly Project-B cron refreshes only `portfolio`** — per-stock rows refresh on app-open only. No trend arrow. No SW/version bump (Investing has neither). Amber accent.
 
+**Source-owned task status (v0.6.2).** `setStatus` writes `status='done'`, but an
+app that RECOMPUTES its task statuses on every publish flips it straight back —
+so the hub ✓ is a silent lie. Worse for Strive's `med` row: it would show a dose
+as handled that was never taken or recorded. `dashboard.js` keeps a
+`SOURCE_OWNED_STATUS` set (currently `strive`); those action rows render the CTA
+only. Add an app to that set if it recomputes status rather than reading the
+hub's. **Strive's `med` also stays `open` while its 30-minute fasted window is
+live** — the hub renders only open tasks, and that state carries an instruction.
+It sends an absolute time ("until 07:42"), never a countdown, because LifeOS
+re-renders on a 60s poll.
+
+**`fmtValue` needs a case per unit.** A unit with no case falls through to
+`String(v)` and renders a bare number — `protein-today` (`unit:'g'`) shipped that
+way. Covered: `gbp`, `kcal`, `kg`, `g`, `pct`.
+
+**SERVER-side publishers need a service_role grant** (migration
+`20260727200000_service_role_grants.sql`). The init migration granted only
+`authenticated`/`anon` because every adapter published from the browser. Strive's
+`lifeos-med-refresh` (hourly pg_cron on Project A, in the **Fitness** repo) is
+the first server publisher — a daily medication's day rolls over while the app is
+closed, so publish-on-open left the hub silent every morning. Without the grant
+it fails `42501 permission denied for schema lifeos`. Deploy such a function with
+`--no-verify-jwt` (it does its own INGEST_SECRET/JWT check; the gateway would
+otherwise reject the cron's bearer).
+
 **Trend colour is driven by the `state` column, not the trend sign** (`dashboard.js` colours by `state`). So metric adapters must set `state` per-signal (up = good for a portfolio, bad for spend; losing weight / under-budget calories = good). Strive already does this.
 
 ## Freshness (tile staleness cue)
