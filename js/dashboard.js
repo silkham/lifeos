@@ -30,6 +30,7 @@ function fmtValue(v, unit) {
     }
     case "kcal": return n.toFixed(0) + " kcal";
     case "kg":   return n.toFixed(1) + " kg";
+    case "g":    return n.toFixed(0) + " g";
     case "pct":  return (n > 0 ? "+" : "") + n.toFixed(1) + "%";
     default:     return String(v);
   }
@@ -121,6 +122,14 @@ function tile(sig) {
 }
 
 // ---- action rows (tasks + nudges) ------------------------------------------
+// Apps that RECOMPUTE a task's status from their own data on every publish. For
+// those, a hub-side ✓ is a lie: setStatus writes 'done', the source app's next
+// boot recomputes it from the truth and flips it straight back. Worse for
+// Strive's `med` row — it would show a dose as handled that was never taken or
+// recorded. Show no ✓; the CTA into the source app is the only honest action.
+const SOURCE_OWNED_STATUS = new Set(["strive"]);
+const hubDismissible = (sig) => !SOURCE_OWNED_STATUS.has(sig.app);
+
 function actionRow(sig) {
   const m = appMeta(sig.app);
   const due = sig.due ? new Date(sig.due + "T00:00:00") : null;
@@ -138,7 +147,7 @@ function actionRow(sig) {
     </div>
     <div class="arow-actions">
       ${sig.cta_url ? `<button class="btn-cta" data-cta="${esc(sig.cta_url)}">${esc(sig.cta_label || "Open")}</button>` : ""}
-      <button class="btn-done" data-done="${esc(sig.id)}" title="Mark done">✓</button>
+      ${hubDismissible(sig) ? `<button class="btn-done" data-done="${esc(sig.id)}" title="Mark done">✓</button>` : ""}
     </div>
   </div>`;
 }
